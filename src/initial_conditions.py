@@ -25,29 +25,31 @@ def disk_particles(
     if radius_min <= 0 or radius_max <= radius_min:
         raise ValueError("radius_min must be positive and smaller than radius_max.")
 
-    generator = torch.Generator(device="cpu")
+    device = torch.device(device)
+    generator = torch.Generator(device=device)
     if seed is not None:
         generator.manual_seed(seed)
 
-    radii = torch.empty(num_particles, dtype=dtype).uniform_(
+    radii = torch.empty(num_particles, dtype=dtype, device=device).uniform_(
         radius_min, radius_max, generator=generator
     )
-    theta = torch.empty(num_particles, dtype=dtype).uniform_(
+    theta = torch.empty(num_particles, dtype=dtype, device=device).uniform_(
         0.0, 2.0 * math.pi, generator=generator
     )
 
-    pos_cpu = torch.stack((radii * torch.cos(theta), radii * torch.sin(theta)), dim=1)
+    positions = torch.stack((radii * torch.cos(theta), radii * torch.sin(theta)), dim=1)
 
-    radial_hat = pos_cpu / radii.unsqueeze(1)
+    radial_hat = positions / radii.unsqueeze(1)
     tangential_hat = torch.stack((-radial_hat[:, 1], radial_hat[:, 0]), dim=1)
 
-    circular_speed = torch.sqrt(torch.as_tensor(G * M, dtype=dtype) / radii)
+    circular_speed = torch.sqrt(torch.as_tensor(G * M, dtype=dtype, device=device) / radii)
     multiplier = torch.normal(
         mean=velocity_multiplier_mean,
         std=velocity_multiplier_std,
         size=(num_particles,),
         generator=generator,
         dtype=dtype,
+        device=device,
     )
     radial_velocity = torch.normal(
         mean=0.0,
@@ -55,12 +57,12 @@ def disk_particles(
         size=(num_particles,),
         generator=generator,
         dtype=dtype,
+        device=device,
     )
 
-    vel_cpu = (
+    velocities = (
         tangential_hat * (circular_speed * multiplier).unsqueeze(1)
         + radial_hat * radial_velocity.unsqueeze(1)
     )
 
-    return pos_cpu.to(device), vel_cpu.to(device)
-
+    return positions, velocities

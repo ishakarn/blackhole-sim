@@ -63,9 +63,26 @@ This writes metric plots and outcome analysis:
 - `outputs/figures/v02_representative_trajectories.png`
 - `outputs/animations/v02_representative_particles.gif`
 
+Run the v0.3 CPU vs CUDA benchmark:
+
+```powershell
+python -m experiments.03_cuda_benchmark
+```
+
+For a quick benchmark smoke test:
+
+```powershell
+python -m experiments.03_cuda_benchmark --particle-counts "1000,10000" --num-steps 100
+```
+
+This writes:
+
+- `outputs/benchmarks/cuda_benchmark.csv`
+- `outputs/benchmarks/cuda_benchmark.png`
+
 ## Project Roadmap
 
-1. 2D Newtonian/pseudo-black-hole particle simulation.
+1. 2D Newtonian/pseudo-black-hole particle simulation. [done]
 2. Accretion-disk-like behavior and better visualizations.
 3. PyTorch CUDA acceleration for larger particle counts.
 4. Relativistic effects, ray tracing, lensing, and shadow rendering.

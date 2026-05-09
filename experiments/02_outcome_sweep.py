@@ -16,6 +16,10 @@ from src.visualization import (
 )
 
 
+def log(message: str) -> None:
+    print(f"[v0.2] {message}", flush=True)
+
+
 def parse_velocity_values(raw: str) -> list[float]:
     return [float(value.strip()) for value in raw.split(",") if value.strip()]
 
@@ -32,6 +36,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--velocity-values", default="0.7,0.9,1.0,1.1,1.3")
     parser.add_argument("--escape-radius", type=float, default=20.0)
     parser.add_argument("--save-every", type=int, default=4)
+    parser.add_argument("--snapshot-interval", type=int, default=None)
+    parser.add_argument("--max-record-particles", type=int, default=None)
     parser.add_argument("--device", default="auto", help="auto, cpu, cuda, or cuda:0")
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--output-dir", default="outputs/figures")
@@ -43,6 +49,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     velocity_values = parse_velocity_values(args.velocity_values)
+    log("Building base simulation config.")
     base_config = SimulationConfig(
         num_particles=args.num_particles,
         num_steps=args.num_steps,
@@ -53,34 +60,51 @@ def main() -> None:
         radial_velocity_std=args.radial_velocity_std,
         escape_radius=args.escape_radius,
         save_every=args.save_every,
+        snapshot_interval=args.snapshot_interval,
+        max_record_particles=args.max_record_particles,
         device=args.device,
         seed=args.seed,
     )
 
     representative_config = replace(base_config, velocity_multiplier_mean=1.0)
-    representative = run_experiment(representative_config)
-    metric_paths = save_metrics_plots(representative, args.output_dir)
-    trajectory_path = save_trajectory_plot(
-        representative,
-        Path(args.output_dir) / "v02_representative_trajectories.png",
+    log(
+        f"Running representative experiment: N={base_config.num_particles}, "
+        f"steps={base_config.num_steps}, device={base_config.device}."
     )
-    animation_path = None
-    if not args.no_animation:
-        animation_path = save_animation(representative, Path(args.animation))
+    representative = run_experiment(representative_config)
+    log(f"Representative experiment finished on device: {representative.device}.")
 
-    sweep_results = run_velocity_multiplier_sweep(base_config, velocity_values)
+    log("Saving time-series metric plots.")
+    metric_paths = save_metrics_plots(representative, args.output_dir)
+    trajectory_path = None
+    animation_path = None
+    if representative.recorded_particle_count > 0:
+        log("Saving representative trajectory plot.")
+        trajectory_path = save_trajectory_plot(
+            representative,
+            Path(args.output_dir) / "v02_representative_trajectories.png",
+        )
+        if not args.no_animation:
+            log("Saving representative animation.")
+            animation_path = save_animation(representative, Path(args.animation))
+    else:
+        log("Skipping representative visualization because trajectory recording is disabled.")
+
+    log(f"Running velocity sweep: {velocity_values}.")
+    sweep_results = run_velocity_multiplier_sweep(base_config, velocity_values, verbose=True)
+    log("Saving outcome sweep plot.")
     outcome_path = save_outcome_sweep_plot(
         sweep_results,
         Path(args.output_dir) / "v02_outcome_fractions_by_velocity.png",
     )
 
-    print(f"Device: {representative.device}")
-    print(f"Saved active-count plot: {metric_paths['active_count']}")
-    print(f"Saved swallowed-fraction plot: {metric_paths['swallowed_fraction']}")
-    print(f"Saved outcome sweep plot: {outcome_path}")
-    print(f"Saved representative trajectories: {trajectory_path}")
+    log(f"Saved active-count plot: {metric_paths['active_count']}.")
+    log(f"Saved swallowed-fraction plot: {metric_paths['swallowed_fraction']}.")
+    log(f"Saved outcome sweep plot: {outcome_path}.")
+    if trajectory_path is not None:
+        log(f"Saved representative trajectories: {trajectory_path}.")
     if animation_path is not None:
-        print(f"Saved representative animation: {animation_path}")
+        log(f"Saved representative animation: {animation_path}.")
     print("Outcome fractions:")
     for item in sweep_results:
         fractions = item.result.outcome_fractions
