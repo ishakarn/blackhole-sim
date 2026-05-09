@@ -108,6 +108,25 @@ To also save a GIF:
 python -m experiments.04_pseudo_relativistic_disk --save-animation
 ```
 
+Run the v0.5 live CUDA simulator:
+
+```powershell
+python -m experiments.05_live_simulator --device cuda --num-particles 50000 --render-particles 10000
+```
+
+Keyboard controls:
+
+- `Space`: pause/resume
+- `R`: reset simulation
+- `T`: toggle trails
+- `C`: cycle color mode: radius, speed, temperature
+- `I`: toggle particle injection
+- `Q` or `Escape`: quit
+
+Matplotlib is the starter live renderer. If it becomes sluggish, a later v0.5b
+can switch the rendering layer to PyGame, PyQtGraph, VisPy, or OpenGL while
+keeping the CUDA simulation state.
+
 ## Project Roadmap
 
 | Version | Focus | Status |
@@ -116,7 +135,7 @@ python -m experiments.04_pseudo_relativistic_disk --save-animation
 | v0.2 | Metrics, outcome sweeps, experiment logging | done |
 | v0.3 | CUDA acceleration and CPU/GPU benchmarking | done |
 | v0.4 | Pseudo-relativistic black hole visuals | done |
-| v0.5 | Live CUDA simulator | next or parallel |
+| v0.5 | Live CUDA simulator | done |
 | v0.6 | Schwarzschild ray tracing / lensing | after v0.4 |
 | v0.7 | Black hole shadow + accretion disk rendering | after v0.6 |
 
@@ -129,6 +148,7 @@ src/
   integrators.py
   metrics.py
   benchmark.py
+  live.py
   simulation.py
   visualization.py
   raytracing.py
@@ -137,6 +157,7 @@ experiments/
   02_outcome_sweep.py
   03_cuda_benchmark.py
   04_pseudo_relativistic_disk.py
+  05_live_simulator.py
 outputs/
   figures/
   animations/
