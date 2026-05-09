@@ -10,3 +10,4 @@ outputs/animations/*.gif
 outputs/animations/*.mp4
 outputs/benchmarks/*.csv
 outputs/benchmarks/*.png
+outputs/metrics/*.csv

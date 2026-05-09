@@ -90,6 +90,24 @@ Recent benchmark on the Lenovo Legion Slim 5 / RTX 4070:
 
 See `notes/v03_cuda_benchmark.md` for the detailed run summary.
 
+Run the v0.4 pseudo-relativistic accretion disk experiment:
+
+```powershell
+python -m experiments.04_pseudo_relativistic_disk
+```
+
+This writes:
+
+- `outputs/figures/v04_accretion_disk_trajectories.png`
+- `outputs/figures/v04_region_fractions.png`
+- `outputs/metrics/pseudo_relativistic_disk_metrics.csv`
+
+To also save a GIF:
+
+```powershell
+python -m experiments.04_pseudo_relativistic_disk --save-animation
+```
+
 ## Project Roadmap
 
 | Version | Focus | Status |
@@ -97,8 +115,8 @@ See `notes/v03_cuda_benchmark.md` for the detailed run summary.
 | v0.1 | Basic Newtonian particle simulation | done |
 | v0.2 | Metrics, outcome sweeps, experiment logging | done |
 | v0.3 | CUDA acceleration and CPU/GPU benchmarking | done |
-| v0.4 | Pseudo-relativistic black hole visuals | next |
-| v0.5 | Live CUDA simulator | after v0.4 or parallel |
+| v0.4 | Pseudo-relativistic black hole visuals | done |
+| v0.5 | Live CUDA simulator | next or parallel |
 | v0.6 | Schwarzschild ray tracing / lensing | after v0.4 |
 | v0.7 | Black hole shadow + accretion disk rendering | after v0.6 |
 
@@ -118,8 +136,10 @@ experiments/
   01_newtonian_particles.py
   02_outcome_sweep.py
   03_cuda_benchmark.py
+  04_pseudo_relativistic_disk.py
 outputs/
   figures/
   animations/
   benchmarks/
+  metrics/
 ```

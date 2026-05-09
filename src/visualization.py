@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import matplotlib
+
+matplotlib.use("Agg")
+
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
@@ -29,6 +33,7 @@ def add_black_hole_markers(
     ax: plt.Axes,
     show_photon_sphere: bool = True,
     show_isco: bool = True,
+    label_regions: bool = False,
 ) -> None:
     horizon = plt.Circle((0, 0), EVENT_HORIZON_RADIUS, color="black", zorder=5)
     ax.add_patch(horizon)
@@ -60,6 +65,31 @@ def add_black_hole_markers(
                 alpha=0.55,
             )
         )
+    if label_regions:
+        label_style = {
+            "color": "#d1d5db",
+            "fontsize": 8,
+            "ha": "left",
+            "va": "center",
+            "alpha": 0.85,
+        }
+        ax.text(EVENT_HORIZON_RADIUS + 0.2, 0.0, "r=2 horizon", **label_style)
+        if show_photon_sphere:
+            ax.text(PHOTON_SPHERE_RADIUS + 0.2, 0.35, "r=3 photon sphere", **label_style)
+        if show_isco:
+            ax.text(ISCO_RADIUS + 0.2, -0.35, "r=6 ISCO", **label_style)
+
+
+def temperature_proxy_from_radius(radii: np.ndarray) -> np.ndarray:
+    """Return normalized disk temperature proxy T ~ r^(-3/4)."""
+
+    safe_radii = np.clip(radii, EVENT_HORIZON_RADIUS, None)
+    temp = safe_radii ** (-0.75)
+    temp_min = float(np.nanmin(temp))
+    temp_max = float(np.nanmax(temp))
+    if temp_max <= temp_min:
+        return np.ones_like(temp)
+    return (temp - temp_min) / (temp_max - temp_min)
 
 
 def save_trajectory_plot(
@@ -127,6 +157,7 @@ def save_animation(
     output_path: str | Path = "outputs/animations/v01_particles.gif",
     fps: int = 30,
     trail_length: int = 35,
+    title: str = "particle disk",
 ) -> Path:
     """Save an animated GIF of the particle simulation."""
 
@@ -141,7 +172,7 @@ def save_animation(
     fig, ax = plt.subplots(figsize=(8, 8), dpi=110)
     _set_axes(ax, extent)
     add_black_hole_markers(ax)
-    ax.set_title("v0.1 particle disk", color="#f8fafc")
+    ax.set_title(title, color="#f8fafc")
 
     trail_lines = LineCollection([], colors="#38bdf8", linewidths=0.35, alpha=0.25)
     ax.add_collection(trail_lines)
@@ -258,5 +289,142 @@ def save_outcome_sweep_plot(
     ax.legend()
     fig.tight_layout()
     fig.savefig(output_path)
+    plt.close(fig)
+    return output_path
+
+
+def save_region_fraction_plot(
+    result: SimulationResult,
+    output_path: str | Path = "outputs/figures/v04_region_fractions.png",
+) -> Path:
+    """Save pseudo-relativistic region fractions over time."""
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    times = result.times.numpy()
+    series = {
+        "swallowed": ("swallowed_fraction", "#111827"),
+        "plunge": ("plunge_fraction", "#ef4444"),
+        "unstable": ("unstable_fraction", "#f97316"),
+        "stable": ("stable_fraction", "#2563eb"),
+        "escaped": ("escaped_fraction", "#64748b"),
+    }
+
+    fig, ax = plt.subplots(figsize=(9, 5), dpi=150)
+    for label, (metric_name, color) in series.items():
+        if metric_name in result.metrics and result.metrics[metric_name].numel() > 0:
+            ax.plot(times, result.metrics[metric_name].numpy(), label=label, color=color, linewidth=2)
+
+    ax.set_title("Pseudo-relativistic disk region fractions")
+    ax.set_xlabel("time")
+    ax.set_ylabel("particle fraction")
+    ax.set_ylim(0.0, 1.0)
+    ax.grid(alpha=0.25)
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(output_path)
+    plt.close(fig)
+    return output_path
+
+
+def save_accretion_disk_trajectory_plot(
+    result: SimulationResult,
+    output_path: str | Path = "outputs/figures/v04_accretion_disk_trajectories.png",
+    color_by: str = "temperature",
+    trail_stride: int = 2,
+    max_trails: int = 900,
+) -> Path:
+    """Save a glowing accretion-disk-style trajectory plot from recorded snapshots."""
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if result.positions.numel() == 0:
+        raise ValueError("No recorded trajectory snapshots are available for plotting.")
+
+    positions = result.positions.numpy()
+    velocities = result.velocities.numpy()
+    active = result.active.numpy()
+    radii_over_time = np.linalg.norm(positions, axis=2)
+    speeds_over_time = np.linalg.norm(velocities, axis=2)
+    extent = max(10.0, float(np.nanmax(np.abs(positions[0]))) * 1.08)
+
+    fig, ax = plt.subplots(figsize=(9, 9), dpi=160)
+    _set_axes(ax, extent)
+    add_black_hole_markers(ax, label_regions=True)
+
+    particle_indices = np.linspace(
+        0,
+        positions.shape[1] - 1,
+        min(max_trails, positions.shape[1]),
+        dtype=int,
+    )
+    segments = []
+    colors = []
+    for idx in particle_indices:
+        path = positions[::trail_stride, idx]
+        alive = active[::trail_stride, idx]
+        visible_path = path[alive]
+        if len(visible_path) > 1:
+            segments.append(visible_path)
+            radius = radii_over_time[-1, idx]
+            speed = speeds_over_time[-1, idx]
+            if color_by == "radius":
+                colors.append(radius)
+            elif color_by == "speed":
+                colors.append(speed)
+            elif color_by == "temperature":
+                colors.append(radius)
+            else:
+                raise ValueError("color_by must be 'temperature', 'radius', or 'speed'.")
+
+    if color_by == "temperature":
+        color_values = temperature_proxy_from_radius(np.asarray(colors))
+        cmap = "inferno"
+        color_label = "Temperature proxy"
+    elif color_by == "radius":
+        color_values = np.asarray(colors)
+        cmap = "viridis"
+        color_label = "Radius"
+    else:
+        color_values = np.asarray(colors)
+        cmap = "plasma"
+        color_label = "Speed"
+
+    trails = LineCollection(segments, cmap=cmap, linewidths=0.55, alpha=0.45)
+    trails.set_array(color_values)
+    ax.add_collection(trails)
+
+    final_positions = positions[-1]
+    final_active = active[-1]
+    final_radii = radii_over_time[-1]
+    final_speeds = speeds_over_time[-1]
+    if color_by == "temperature":
+        scatter_values = temperature_proxy_from_radius(final_radii[final_active])
+        cmap = "inferno"
+    elif color_by == "radius":
+        scatter_values = final_radii[final_active]
+        cmap = "viridis"
+    else:
+        scatter_values = final_speeds[final_active]
+        cmap = "plasma"
+
+    scatter = ax.scatter(
+        final_positions[final_active, 0],
+        final_positions[final_active, 1],
+        c=scatter_values,
+        cmap=cmap,
+        s=4,
+        alpha=0.95,
+        linewidths=0,
+    )
+    fig.colorbar(scatter, ax=ax, fraction=0.046, pad=0.04, label=color_label)
+    ax.set_title("v0.4 pseudo-relativistic accretion disk", color="#f8fafc")
+    ax.set_xlabel("x", color="#d1d5db")
+    ax.set_ylabel("y", color="#d1d5db")
+
+    fig.tight_layout()
+    fig.savefig(output_path, facecolor=fig.get_facecolor())
     plt.close(fig)
     return output_path

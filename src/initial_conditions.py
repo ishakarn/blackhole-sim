@@ -66,3 +66,29 @@ def disk_particles(
     )
 
     return positions, velocities
+
+
+def accretion_disk_particles(
+    num_particles: int,
+    radius_min: float = 6.0,
+    radius_max: float = 40.0,
+    velocity_multiplier: float = 0.98,
+    velocity_noise: float = 0.06,
+    radial_noise: float = 0.01,
+    device: str | torch.device = "cpu",
+    dtype: torch.dtype = torch.float32,
+    seed: int | None = None,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Create an accretion-disk-like particle distribution mostly outside the ISCO."""
+
+    return disk_particles(
+        num_particles=num_particles,
+        radius_min=radius_min,
+        radius_max=radius_max,
+        velocity_multiplier_mean=velocity_multiplier,
+        velocity_multiplier_std=velocity_noise,
+        radial_velocity_std=radial_noise,
+        device=device,
+        dtype=dtype,
+        seed=seed,
+    )

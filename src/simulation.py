@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import torch
 
 from .constants import EVENT_HORIZON_RADIUS
-from .initial_conditions import disk_particles
+from .initial_conditions import accretion_disk_particles, disk_particles
 from .integrators import velocity_verlet_step
 from .metrics import classify_outcomes, measure_step, summarize_outcomes
 
@@ -22,6 +22,7 @@ class SimulationConfig:
     velocity_multiplier_mean: float = 0.97
     velocity_multiplier_std: float = 0.13
     radial_velocity_std: float = 0.02
+    initialization_mode: str = "disk"
     horizon_radius: float = EVENT_HORIZON_RADIUS
     escape_radius: float = 20.0
     softening: float = 0.03
@@ -86,16 +87,30 @@ def run_experiment(config: SimulationConfig = SimulationConfig()) -> ExperimentR
     if config.max_record_particles is not None:
         record_count = min(record_count, config.max_record_particles)
 
-    positions, velocities = disk_particles(
-        num_particles=config.num_particles,
-        radius_min=config.radius_min,
-        radius_max=config.radius_max,
-        velocity_multiplier_mean=config.velocity_multiplier_mean,
-        velocity_multiplier_std=config.velocity_multiplier_std,
-        radial_velocity_std=config.radial_velocity_std,
-        device=device,
-        seed=config.seed,
-    )
+    if config.initialization_mode == "accretion_disk":
+        positions, velocities = accretion_disk_particles(
+            num_particles=config.num_particles,
+            radius_min=config.radius_min,
+            radius_max=config.radius_max,
+            velocity_multiplier=config.velocity_multiplier_mean,
+            velocity_noise=config.velocity_multiplier_std,
+            radial_noise=config.radial_velocity_std,
+            device=device,
+            seed=config.seed,
+        )
+    elif config.initialization_mode == "disk":
+        positions, velocities = disk_particles(
+            num_particles=config.num_particles,
+            radius_min=config.radius_min,
+            radius_max=config.radius_max,
+            velocity_multiplier_mean=config.velocity_multiplier_mean,
+            velocity_multiplier_std=config.velocity_multiplier_std,
+            radial_velocity_std=config.radial_velocity_std,
+            device=device,
+            seed=config.seed,
+        )
+    else:
+        raise ValueError(f"Unknown initialization_mode: {config.initialization_mode!r}")
     active = torch.ones(config.num_particles, dtype=torch.bool, device=device)
 
     saved_positions = []
@@ -104,8 +119,14 @@ def run_experiment(config: SimulationConfig = SimulationConfig()) -> ExperimentR
     metric_history: dict[str, list[torch.Tensor]] = {
         "active_count": [],
         "swallowed_fraction": [],
+        "plunge_fraction": [],
+        "unstable_fraction": [],
+        "stable_fraction": [],
+        "escaped_fraction": [],
         "mean_radius": [],
         "mean_speed": [],
+        "mean_radius_active": [],
+        "mean_speed_active": [],
     }
 
     with torch.no_grad():
@@ -116,7 +137,13 @@ def run_experiment(config: SimulationConfig = SimulationConfig()) -> ExperimentR
                     saved_velocities.append(velocities[:record_count].detach().cpu())
                     saved_active.append(active[:record_count].detach().cpu())
                 if config.record_metrics:
-                    step_metrics = measure_step(positions, velocities, active, config.num_particles)
+                    step_metrics = measure_step(
+                        positions,
+                        velocities,
+                        active,
+                        config.num_particles,
+                        escape_radius=config.escape_radius,
+                    )
                     for name, value in step_metrics.items():
                         metric_history[name].append(value.detach().cpu())
 
