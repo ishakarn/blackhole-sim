@@ -80,12 +80,27 @@ This writes:
 - `outputs/benchmarks/cuda_benchmark.csv`
 - `outputs/benchmarks/cuda_benchmark.png`
 
+Recent benchmark on the Lenovo Legion Slim 5 / RTX 4070:
+
+- command: `python -m experiments.03_cuda_benchmark --particle-counts "1000,2500,5000,10000,25000,50000,100000,250000" --num-steps 300`
+- CUDA became faster than CPU at about `5,000` particles
+- at `250,000` particles, CPU reached about `19.1M` particle updates/sec
+- at `250,000` particles, CUDA reached about `210.5M` particle updates/sec
+- CUDA was about `11x` faster than CPU at the largest tested size
+
+See `notes/v03_cuda_benchmark.md` for the detailed run summary.
+
 ## Project Roadmap
 
-1. 2D Newtonian/pseudo-black-hole particle simulation. [done]
-2. Accretion-disk-like behavior and better visualizations.
-3. PyTorch CUDA acceleration for larger particle counts.
-4. Relativistic effects, ray tracing, lensing, and shadow rendering.
+| Version | Focus | Status |
+|---|---|---|
+| v0.1 | Basic Newtonian particle simulation | done |
+| v0.2 | Metrics, outcome sweeps, experiment logging | done |
+| v0.3 | CUDA acceleration and CPU/GPU benchmarking | done |
+| v0.4 | Pseudo-relativistic black hole visuals | next |
+| v0.5 | Live CUDA simulator | after v0.4 or parallel |
+| v0.6 | Schwarzschild ray tracing / lensing | after v0.4 |
+| v0.7 | Black hole shadow + accretion disk rendering | after v0.6 |
 
 ## Layout
 
@@ -94,12 +109,17 @@ src/
   constants.py
   initial_conditions.py
   integrators.py
+  metrics.py
+  benchmark.py
   simulation.py
   visualization.py
   raytracing.py
 experiments/
   01_newtonian_particles.py
+  02_outcome_sweep.py
+  03_cuda_benchmark.py
 outputs/
   figures/
   animations/
+  benchmarks/
 ```
