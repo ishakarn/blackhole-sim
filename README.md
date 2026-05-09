@@ -127,6 +127,47 @@ Matplotlib is the starter live renderer. If it becomes sluggish, a later v0.5b
 can switch the rendering layer to PyGame, PyQtGraph, VisPy, or OpenGL while
 keeping the CUDA simulation state.
 
+Run the v0.5b fast VisPy/OpenGL live simulator:
+
+```powershell
+python -m experiments.05b_live_vispy --device cuda --num-particles 50000 --render-particles 10000 --physics-steps-per-frame 5
+```
+
+v0.5b keeps the same CUDA simulation backend but avoids Matplotlib entirely for
+the live window. It renders a subset of particles with VisPy point-cloud
+rendering and reports live metrics in the window title and console.
+
+v0.5b controls:
+
+- `Space`: pause/resume
+- `R`: reset simulation
+- `C`: cycle color mode
+- `I`: toggle particle injection
+- `+` / `-`: increase/decrease simulation speed
+- `]` / `[`: increase/decrease rendered particle count
+- `.` / `,`: increase/decrease point size
+- `H`: toggle help overlay
+- `0`: reset view
+- `Q` or `Escape`: quit
+
+Run the v0.5c polished live demo:
+
+```powershell
+python -m experiments.05c_live_demo --preset large_cuda_demo --device cuda
+```
+
+Available presets:
+
+- `stable_disk`
+- `infall`
+- `hot_inner_disk`
+- `chaotic_disk`
+- `large_cuda_demo`
+
+v0.5c adds presets, optional limited trails, screenshots, injection controls,
+velocity and timestep controls, and a richer help overlay. Screenshots are saved
+to `outputs/figures/live_screenshot_<timestamp>.png`.
+
 ## Project Roadmap
 
 | Version | Focus | Status |
@@ -135,7 +176,9 @@ keeping the CUDA simulation state.
 | v0.2 | Metrics, outcome sweeps, experiment logging | done |
 | v0.3 | CUDA acceleration and CPU/GPU benchmarking | done |
 | v0.4 | Pseudo-relativistic black hole visuals | done |
-| v0.5 | Live CUDA simulator | done |
+| v0.5a | Matplotlib live CUDA simulator | done, slow but useful |
+| v0.5b | VisPy fast live CUDA simulator | done |
+| v0.5c | Live demo polish, presets, screenshots, limited trails | done |
 | v0.6 | Schwarzschild ray tracing / lensing | after v0.4 |
 | v0.7 | Black hole shadow + accretion disk rendering | after v0.6 |
 
@@ -158,6 +201,8 @@ experiments/
   03_cuda_benchmark.py
   04_pseudo_relativistic_disk.py
   05_live_simulator.py
+  05b_live_vispy.py
+  05c_live_demo.py
 outputs/
   figures/
   animations/

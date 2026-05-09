@@ -25,6 +25,8 @@ class LiveSimulationConfig:
     dt: float = 0.005
     radius_min: float = 6.0
     radius_max: float = 40.0
+    injection_radius_min: float | None = None
+    injection_radius_max: float | None = None
     velocity_multiplier: float = 0.985
     velocity_noise: float = 0.055
     radial_noise: float = 0.012
@@ -95,7 +97,19 @@ class LiveSimulationState:
         self.color_mode = COLOR_MODES[(index + 1) % len(COLOR_MODES)]
         return self.color_mode
 
-    def render_frame(self, fps: float = 0.0) -> RenderFrame:
+    def set_render_count(self, render_particles: int) -> int:
+        """Change how many particles are copied to CPU for rendering."""
+
+        self.render_count = max(1, min(int(render_particles), self.config.num_particles))
+        self.config.render_particles = self.render_count
+        self.render_indices = torch.arange(self.render_count, device=self.device)
+        return self.render_count
+
+    def set_velocity_multiplier(self, velocity_multiplier: float) -> float:
+        self.config.velocity_multiplier = float(velocity_multiplier)
+        return self.config.velocity_multiplier
+
+    def render_frame(self, fps: float = 0.0, include_metrics: bool = True) -> RenderFrame:
         with torch.no_grad():
             render_positions = self.positions[self.render_indices]
             render_velocities = self.velocities[self.render_indices]
@@ -110,7 +124,7 @@ class LiveSimulationState:
             else:
                 colors = self._temperature_proxy(radii)
 
-            metrics = self._metrics(fps)
+            metrics = self._metrics(fps) if include_metrics else {}
 
         return RenderFrame(
             positions=render_positions.detach().cpu().numpy(),
@@ -165,8 +179,12 @@ class LiveSimulationState:
 
         new_positions, new_velocities = accretion_disk_particles(
             num_particles=count,
-            radius_min=max(self.config.radius_min, self.config.radius_max * 0.85),
-            radius_max=self.config.radius_max,
+            radius_min=self.config.injection_radius_min
+            if self.config.injection_radius_min is not None
+            else max(self.config.radius_min, self.config.radius_max * 0.85),
+            radius_max=self.config.injection_radius_max
+            if self.config.injection_radius_max is not None
+            else self.config.radius_max,
             velocity_multiplier=self.config.velocity_multiplier,
             velocity_noise=self.config.velocity_noise,
             radial_noise=self.config.radial_noise,
