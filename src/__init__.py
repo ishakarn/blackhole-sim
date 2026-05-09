@@ -1,0 +1,2 @@
+"""Black hole simulation package."""
+
