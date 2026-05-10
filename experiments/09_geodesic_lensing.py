@@ -15,7 +15,7 @@ from src.backgrounds import make_background
 from src.geodesic_renderer import render_geodesic_lensing_image
 
 
-OUTPUT_DIR = pathlib.Path(__file__).parent.parent / "outputs" / "figures"
+OUTPUT_DIR = pathlib.Path(__file__).parent.parent / "outputs" / "figures" / "09_geodesic_lensing"
 
 
 def parse_args() -> argparse.Namespace:

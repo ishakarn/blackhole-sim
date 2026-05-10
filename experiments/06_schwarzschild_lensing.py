@@ -39,7 +39,7 @@ from src.raytracing import (
 # ---------------------------------------------------------------------------
 # Output directory
 # ---------------------------------------------------------------------------
-OUTPUT_DIR = pathlib.Path(__file__).parent.parent / "outputs" / "figures"
+OUTPUT_DIR = pathlib.Path(__file__).parent.parent / "outputs" / "figures" / "06_schwarzschild_lensing"
 
 
 # ---------------------------------------------------------------------------

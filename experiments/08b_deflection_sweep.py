@@ -16,7 +16,7 @@ from src.constants import B_CRIT
 from src.geodesics import integrate_many_null_geodesics
 
 
-OUTPUT_DIR = pathlib.Path(__file__).parent.parent / "outputs" / "figures"
+OUTPUT_DIR = pathlib.Path(__file__).parent.parent / "outputs" / "figures" / "08b_deflection_sweep"
 METRICS_DIR = pathlib.Path(__file__).parent.parent / "outputs" / "metrics"
 
 

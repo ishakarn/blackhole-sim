@@ -25,7 +25,7 @@ from src.geodesic_renderer import (
 )
 
 
-OUTPUT_DIR = pathlib.Path(__file__).parent.parent / "outputs" / "figures"
+OUTPUT_DIR = pathlib.Path(__file__).parent.parent / "outputs" / "figures" / "11_approx_3d_disk_renderer"
 
 
 def parse_args() -> argparse.Namespace:

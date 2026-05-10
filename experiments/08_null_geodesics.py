@@ -15,7 +15,7 @@ from src.constants import B_CRIT, EVENT_HORIZON_RADIUS, PHOTON_SPHERE_RADIUS
 from src.geodesics import integrate_many_null_geodesics
 
 
-OUTPUT_DIR = pathlib.Path(__file__).parent.parent / "outputs" / "figures"
+OUTPUT_DIR = pathlib.Path(__file__).parent.parent / "outputs" / "figures" / "08_null_geodesics"
 
 
 def parse_b_values(raw: str) -> list[float]:

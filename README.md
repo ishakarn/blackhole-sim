@@ -1,20 +1,18 @@
 # Black Hole SIM
 
-This is so cool! I am going to make a black hole!!
+A staged black-hole simulation and rendering project in Python. The repo starts
+with Newtonian test-particle experiments, then moves into Schwarzschild ray
+tracing, curved-ray accretion-disk rendering, relativistic transfer-function
+shading, photon-momentum diagnostics, and an interactive VisPy camera viewer.
 
-
-A staged black-hole simulation project. Version 0.1 is a 2D Newtonian
-test-particle simulator around a fixed central black-hole-like mass.
-
-The code uses dimensionless units:
+The code uses dimensionless Schwarzschild-style units:
 
 - `G = 1`
 - `M = 1`
 - `c = 1`
-- event horizon proxy `r_s = 2`
-
-Particles do not interact with each other. They move under central Newtonian
-gravity and are marked inactive once they cross the absorbing horizon.
+- event horizon `r = 2`
+- photon sphere `r = 3`
+- ISCO `r = 6`
 
 ## Quick Start
 
@@ -22,6 +20,12 @@ Install dependencies in your preferred environment:
 
 ```powershell
 pip install -r requirements.txt
+```
+
+If you are using the Conda environment used during development:
+
+```powershell
+conda activate blackhole-sim
 ```
 
 Run the first simulation:
@@ -43,11 +47,58 @@ python -m experiments.01_newtonian_particles --device cuda
 python -m experiments.01_newtonian_particles --device cpu
 ```
 
-For a faster smoke test:
+## Current Highlights
+
+The current late-stage rendering work is centered on the full 3D Schwarzschild
+pipeline and the interactive viewer.
+
+Run the current interactive viewer:
 
 ```powershell
-python -m experiments.01_newtonian_particles --num-particles 250 --num-steps 500 --no-animation
+python -m experiments.20_interactive_viewer
 ```
+
+Current v2.1 viewer behavior:
+
+- low-resolution preview renders for camera movement
+- separate on-demand quality render path
+- debounced input and non-overlapping render scheduling
+- safe render wrapper and memory cleanup
+- screenshots saved under `outputs/figures/20_interactive_viewer/`
+
+Viewer controls:
+
+- `Left` / `Right` or `A` / `D`: orbit camera azimuth
+- `Up` or `W`: raise camera height
+- `Down`: lower camera height
+- `+` / `-`: move camera closer/farther
+- `[` / `]`: decrease/increase FOV
+- `R`: run one quality render
+- `P` or `S`: save the current displayed frame
+- `Q` or `Escape`: quit
+
+Useful viewer options:
+
+```powershell
+python -m experiments.20_interactive_viewer --preview-resolution 64 --preview-max-steps 600 --preview-step-size 0.02
+python -m experiments.20_interactive_viewer --quality-resolution 512 --quality-supersample 2 --quality-max-steps 7000
+```
+
+Run the current momentum-transfer renderer:
+
+```powershell
+python -m experiments.18_photon_momentum_transfer --preset quality --transfer-mode momentum
+```
+
+Run the photon-momentum diagnostics pass:
+
+```powershell
+python -m experiments.18b_photon_momentum_diagnostics --preset quality
+```
+
+## Stage Guide
+
+### v0.x Particle Simulation
 
 Run the v0.2 metrics and velocity sweep:
 
@@ -55,7 +106,7 @@ Run the v0.2 metrics and velocity sweep:
 python -m experiments.02_outcome_sweep
 ```
 
-This writes metric plots and outcome analysis:
+This writes:
 
 - `outputs/figures/v02_active_count.png`
 - `outputs/figures/v02_swallowed_fraction.png`
@@ -69,26 +120,10 @@ Run the v0.3 CPU vs CUDA benchmark:
 python -m experiments.03_cuda_benchmark
 ```
 
-For a quick benchmark smoke test:
-
-```powershell
-python -m experiments.03_cuda_benchmark --particle-counts "1000,10000" --num-steps 100
-```
-
 This writes:
 
 - `outputs/benchmarks/cuda_benchmark.csv`
 - `outputs/benchmarks/cuda_benchmark.png`
-
-Recent benchmark on the Lenovo Legion Slim 5 / RTX 4070:
-
-- command: `python -m experiments.03_cuda_benchmark --particle-counts "1000,2500,5000,10000,25000,50000,100000,250000" --num-steps 300`
-- CUDA became faster than CPU at about `5,000` particles
-- at `250,000` particles, CPU reached about `19.1M` particle updates/sec
-- at `250,000` particles, CUDA reached about `210.5M` particle updates/sec
-- CUDA was about `11x` faster than CPU at the largest tested size
-
-See `notes/v03_cuda_benchmark.md` for the detailed run summary.
 
 Run the v0.4 pseudo-relativistic accretion disk experiment:
 
@@ -102,53 +137,17 @@ This writes:
 - `outputs/figures/v04_region_fractions.png`
 - `outputs/metrics/pseudo_relativistic_disk_metrics.csv`
 
-To also save a GIF:
-
-```powershell
-python -m experiments.04_pseudo_relativistic_disk --save-animation
-```
-
 Run the v0.5 live CUDA simulator:
 
 ```powershell
 python -m experiments.05_live_simulator --device cuda --num-particles 50000 --render-particles 10000
 ```
 
-Keyboard controls:
-
-- `Space`: pause/resume
-- `R`: reset simulation
-- `T`: toggle trails
-- `C`: cycle color mode: radius, speed, temperature
-- `I`: toggle particle injection
-- `Q` or `Escape`: quit
-
-Matplotlib is the starter live renderer. If it becomes sluggish, a later v0.5b
-can switch the rendering layer to PyGame, PyQtGraph, VisPy, or OpenGL while
-keeping the CUDA simulation state.
-
-Run the v0.5b fast VisPy/OpenGL live simulator:
+Run the v0.5b VisPy live simulator:
 
 ```powershell
 python -m experiments.05b_live_vispy --device cuda --num-particles 50000 --render-particles 10000 --physics-steps-per-frame 5
 ```
-
-v0.5b keeps the same CUDA simulation backend but avoids Matplotlib entirely for
-the live window. It renders a subset of particles with VisPy point-cloud
-rendering and reports live metrics in the window title and console.
-
-v0.5b controls:
-
-- `Space`: pause/resume
-- `R`: reset simulation
-- `C`: cycle color mode
-- `I`: toggle particle injection
-- `+` / `-`: increase/decrease simulation speed
-- `]` / `[`: increase/decrease rendered particle count
-- `.` / `,`: increase/decrease point size
-- `H`: toggle help overlay
-- `0`: reset view
-- `Q` or `Escape`: quit
 
 Run the v0.5c polished live demo:
 
@@ -156,17 +155,85 @@ Run the v0.5c polished live demo:
 python -m experiments.05c_live_demo --preset large_cuda_demo --device cuda
 ```
 
-Available presets:
+### v0.6-v1.1 Schwarzschild Setup
 
-- `stable_disk`
-- `infall`
-- `hot_inner_disk`
-- `chaotic_disk`
-- `large_cuda_demo`
+These stages introduce Schwarzschild lensing, null geodesics, black-hole shadow
+rendering, and approximate curved-ray disk rendering. Representative commands:
 
-v0.5c adds presets, optional limited trails, screenshots, injection controls,
-velocity and timestep controls, and a richer help overlay. Screenshots are saved
-to `outputs/figures/live_screenshot_<timestamp>.png`.
+```powershell
+python -m experiments.06_schwarzschild_lensing
+python -m experiments.07_black_hole_disk
+python -m experiments.08_null_geodesics
+python -m experiments.08b_deflection_sweep
+python -m experiments.09_geodesic_lensing
+python -m experiments.10_geodesic_disk
+python -m experiments.11_approx_3d_disk_renderer
+```
+
+These now write into versioned folders under `outputs/figures/` such as:
+
+- `outputs/figures/06_schwarzschild_lensing/`
+- `outputs/figures/07_black_hole_disk/`
+- `outputs/figures/11_approx_3d_disk_renderer/`
+
+### v1.2-v1.5 Full 3D Curved-Ray Rendering
+
+These stages establish the full 3D geodesic marcher, camera/FOV sweep,
+refined disk emission, relativistic appearance heuristics, and polished render
+quality.
+
+Representative commands:
+
+```powershell
+python -m experiments.12_full_3d_geodesic_renderer
+python -m experiments.12b_camera_fov_sweep
+python -m experiments.13_refined_3d_geodesic_renderer
+python -m experiments.14_relativistic_disk_effects
+python -m experiments.15_polished_render --preset quality
+```
+
+Useful current framing defaults from the sweep work:
+
+- `fov = 14`
+- `camera_distance = 100`
+- `camera_height = 80`
+
+These stages write into:
+
+- `outputs/figures/12_full_3d_geodesic_renderer/`
+- `outputs/figures/13_refined_3d_geodesic_renderer/`
+- `outputs/figures/14_relativistic_disk_effects/`
+- `outputs/figures/15_polished_render/`
+- `outputs/sweeps/camera_fov/`
+- `outputs/metrics/camera_fov_sweep_full.csv`
+- `outputs/metrics/camera_fov_sweep_shadow_only.csv`
+
+### v1.6-v1.8b Relativistic Transfer and Diagnostics
+
+These stages add shared relativistic disk shading helpers, a transfer-function
+renderer, improved photon momentum reconstruction, and a diagnostics-only pass
+to validate null consistency.
+
+Representative commands:
+
+```powershell
+python -m experiments.16_relativistic_transfer_renderer --preset quality --physics-mode transfer
+python -m experiments.18_photon_momentum_transfer --preset quality --transfer-mode momentum
+python -m experiments.18b_photon_momentum_diagnostics --preset quality
+```
+
+Current validated v1.8 and v1.8b notes:
+
+- momentum-transfer `g` is close to tangent-transfer `g`, but more physically motivated
+- typical v1.8 comparison: mean absolute `g` difference about `0.0061`
+- coordinate null residual mean absolute error about `7.6e-08`
+- local tetrad null residual mean absolute error about `1.23e-07`
+
+These stages write into:
+
+- `outputs/figures/16_relativistic_transfer_renderer/`
+- `outputs/figures/18_photon_momentum_transfer/`
+- `outputs/figures/photon_diagnostics/`
 
 ## Project Roadmap
 
@@ -176,25 +243,61 @@ to `outputs/figures/live_screenshot_<timestamp>.png`.
 | v0.2 | Metrics, outcome sweeps, experiment logging | done |
 | v0.3 | CUDA acceleration and CPU/GPU benchmarking | done |
 | v0.4 | Pseudo-relativistic black hole visuals | done |
-| v0.5a | Matplotlib live CUDA simulator | done, slow but useful |
+| v0.5a | Matplotlib live CUDA simulator | done |
 | v0.5b | VisPy fast live CUDA simulator | done |
 | v0.5c | Live demo polish, presets, screenshots, limited trails | done |
-| v0.6 | Schwarzschild ray tracing / lensing | after v0.4 |
-| v0.7 | Black hole shadow + accretion disk rendering | after v0.6 |
+| v0.6-v1.1 | Schwarzschild lensing, shadow, null geodesics, approximate disk rendering | done |
+| v1.2 | Full 3D geodesic marcher with disk-hit/capture/escape classification | done |
+| v1.2b | Camera/FOV sweep and framing selection | done |
+| v1.3 | Refined disk emission and compositing | done |
+| v1.4 | Heuristic relativistic beaming and redshift proxies | done |
+| v1.5 | Polished render quality pass | done |
+| v1.6 | Relativistic transfer-function disk shading | done |
+| v1.8 | Photon-momentum transfer-factor rendering | done |
+| v1.8b | Photon momentum diagnostics and null validation | done |
+| v2.0 | Interactive VisPy camera preview viewer | done |
+| v2.1 | Interactive viewer stability and preview optimization | done |
+
+## Output Layout
+
+Figure outputs are now grouped by experiment version to avoid clutter in the
+top-level figure directory.
+
+Examples:
+
+- `outputs/figures/06_schwarzschild_lensing/`
+- `outputs/figures/07_black_hole_disk/`
+- `outputs/figures/12_full_3d_geodesic_renderer/`
+- `outputs/figures/16_relativistic_transfer_renderer/`
+- `outputs/figures/18_photon_momentum_transfer/`
+- `outputs/figures/20_interactive_viewer/`
+- `outputs/figures/photon_diagnostics/`
+
+Other outputs remain in:
+
+- `outputs/animations/`
+- `outputs/benchmarks/`
+- `outputs/metrics/`
+- `outputs/sweeps/`
 
 ## Layout
 
 ```text
 src/
+  benchmark.py
+  camera.py
   constants.py
+  geodesic_3d.py
   initial_conditions.py
   integrators.py
-  metrics.py
-  benchmark.py
   live.py
-  simulation.py
-  visualization.py
+  metrics.py
+  photon_transfer.py
   raytracing.py
+  relativistic_disk.py
+  simulation.py
+  transfer_render_backend.py
+  visualization.py
 experiments/
   01_newtonian_particles.py
   02_outcome_sweep.py
@@ -203,9 +306,26 @@ experiments/
   05_live_simulator.py
   05b_live_vispy.py
   05c_live_demo.py
+  06_schwarzschild_lensing.py
+  07_black_hole_disk.py
+  08_null_geodesics.py
+  08b_deflection_sweep.py
+  09_geodesic_lensing.py
+  10_geodesic_disk.py
+  11_approx_3d_disk_renderer.py
+  12_full_3d_geodesic_renderer.py
+  12b_camera_fov_sweep.py
+  13_refined_3d_geodesic_renderer.py
+  14_relativistic_disk_effects.py
+  15_polished_render.py
+  16_relativistic_transfer_renderer.py
+  18_photon_momentum_transfer.py
+  18b_photon_momentum_diagnostics.py
+  20_interactive_viewer.py
 outputs/
-  figures/
   animations/
   benchmarks/
+  figures/
   metrics/
+  sweeps/
 ```

@@ -23,7 +23,7 @@ from src.geodesic_renderer import render_geodesic_lensing_image
 from src.raytracing import compute_impact_parameter, make_camera_grid
 
 
-OUTPUT_DIR = pathlib.Path(__file__).parent.parent / "outputs" / "figures"
+OUTPUT_DIR = pathlib.Path(__file__).parent.parent / "outputs" / "figures" / "10_geodesic_disk"
 
 
 def parse_args() -> argparse.Namespace:
