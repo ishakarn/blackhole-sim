@@ -67,6 +67,83 @@ def compute_deflection_angle(
     return (4.0 * G * M) / (b * c**2)
 
 
+def make_shadow_mask(
+    b: torch.Tensor,
+    b_crit: float = B_CRIT,
+    shadow_softness: float = 0.05,
+) -> torch.Tensor:
+    """Return a soft shadow transmission mask where 0=captured, 1=free."""
+    if shadow_softness > 0.0:
+        edge = (b - b_crit) / shadow_softness
+        return torch.sigmoid(edge)
+    return (b >= b_crit).float()
+
+
+def make_photon_ring_image(
+    b: torch.Tensor,
+    width: float = 0.12,
+    intensity: float = 0.75,
+    color: tuple[float, float, float] = (1.0, 0.75, 0.35),
+) -> torch.Tensor:
+    """Return an additive RGB photon-ring glow image."""
+    ring_dist = (b - B_CRIT) / width
+    ring_mask = torch.exp(-0.5 * ring_dist**2)
+    ring_color = torch.tensor(color, device=b.device, dtype=torch.float32)
+    return (intensity * ring_mask).unsqueeze(-1) * ring_color
+
+
+def make_lensed_source_coordinates(
+    x: torch.Tensor,
+    y: torch.Tensor,
+    b: torch.Tensor,
+    lens_strength: float = 1.0,
+    max_deflection: float = 2.0 * math.pi,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return source-plane coordinates under the approximate thin-lens map."""
+    alpha = compute_deflection_angle(b)
+    alpha = torch.clamp(alpha * lens_strength, max=max_deflection)
+    factor = 1.0 - alpha / b
+    return x * factor, y * factor
+
+
+def sample_lensed_background(
+    background: torch.Tensor,
+    x: torch.Tensor,
+    y: torch.Tensor,
+    b: torch.Tensor,
+    fov: float,
+    lens_strength: float = 1.0,
+    max_deflection: float = 2.0 * math.pi,
+) -> torch.Tensor:
+    """Sample the procedural background through the approximate lens model."""
+    height, width = x.shape
+    x_src, y_src = make_lensed_source_coordinates(
+        x,
+        y,
+        b,
+        lens_strength=lens_strength,
+        max_deflection=max_deflection,
+    )
+
+    half_fov = fov / 2.0
+    half_fov_y = half_fov * (height / width)
+
+    u = x_src / half_fov
+    v = -y_src / half_fov_y
+
+    grid = torch.stack([u, v], dim=-1).unsqueeze(0)
+    bg_t = background.permute(2, 0, 1).unsqueeze(0).float()
+
+    sampled = torch.nn.functional.grid_sample(
+        bg_t,
+        grid,
+        mode="bilinear",
+        padding_mode="zeros",
+        align_corners=True,
+    )
+    return sampled.squeeze(0).permute(1, 2, 0)
+
+
 # ---------------------------------------------------------------------------
 # Main renderer
 # ---------------------------------------------------------------------------
@@ -80,6 +157,9 @@ def render_lensing_image(
     lens_strength: float = 1.0,
     max_deflection: float = 2.0 * math.pi,
     shadow_softness: float = 0.05,
+    photon_ring: bool = True,
+    photon_ring_width: float = 0.25,
+    photon_ring_intensity: float = 3.0,
     device: torch.device | str = "cpu",
 ) -> torch.Tensor:
     """Render a gravitationally lensed image.
@@ -110,61 +190,38 @@ def render_lensing_image(
     """
     device = torch.device(device)
     background = background.to(device)
-    n_channels = background.shape[-1]
 
     # --- camera grid ---
     x, y = make_camera_grid(width, height, fov, device=device)
 
-    # --- polar coordinates ---
-    b = compute_impact_parameter(x, y)
-    theta = torch.atan2(y, x)          # (H, W)
+    # --- impact parameter ---
+    b = compute_impact_parameter(x, y)      # (H, W)
 
-    # --- deflection ---
-    alpha = compute_deflection_angle(b)
-    alpha = torch.clamp(alpha * lens_strength, max=max_deflection)
-
-    # angular warp: deflect toward the black hole (reduce theta magnitude)
-    theta_src = theta + alpha           # wrap theta toward the lens axis
-
-    # convert back to Cartesian for background sampling
-    r_src = b                           # radial mapping unchanged
-    x_src = r_src * torch.cos(theta_src)
-    y_src = r_src * torch.sin(theta_src)
-
-    # --- sample background via normalised grid_sample coordinates ---
-    # background may be a different size; map x_src/y_src to [-1, 1]
-    H_bg, W_bg = background.shape[:2]
-    aspect_bg = H_bg / W_bg
-
-    half_fov = fov / 2.0
-    half_fov_y = half_fov * (height / width)
-
-    u = x_src / half_fov                           # [-1, 1] in x
-    v = y_src / half_fov_y                         # [-1, 1] in y
-    v = -v                                          # flip y (image coords)
-
-    # grid_sample expects (N, C, H, W) input and (N, H, W, 2) grid
-    grid = torch.stack([u, v], dim=-1).unsqueeze(0)        # (1, H, W, 2)
-    bg_t = background.permute(2, 0, 1).unsqueeze(0).float()  # (1, C, H_bg, W_bg)
-
-    sampled = torch.nn.functional.grid_sample(
-        bg_t,
-        grid,
-        mode="bilinear",
-        padding_mode="border",
-        align_corners=True,
-    )  # (1, C, H, W)
-    image = sampled.squeeze(0).permute(1, 2, 0)             # (H, W, C)
+    image = sample_lensed_background(
+        background=background,
+        x=x,
+        y=y,
+        b=b,
+        fov=fov,
+        lens_strength=lens_strength,
+        max_deflection=max_deflection,
+    )
 
     # --- shadow mask ---
-    # soft edge: sigmoid blend from 0 (captured) to 1 (free)
-    if shadow_softness > 0.0:
-        edge = (b - b_crit) / shadow_softness
-        mask = torch.sigmoid(edge)                  # (H, W)
-    else:
-        mask = (b >= b_crit).float()
+    mask = make_shadow_mask(
+        b,
+        b_crit=b_crit,
+        shadow_softness=shadow_softness,
+    )
 
     image = image * mask.unsqueeze(-1)
+
+    if photon_ring:
+        image = image + make_photon_ring_image(
+            b,
+            width=photon_ring_width,
+            intensity=photon_ring_intensity,
+        )
 
     return image.clamp(0.0, 1.0)
 

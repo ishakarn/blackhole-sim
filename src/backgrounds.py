@@ -24,7 +24,7 @@ import torch
 def star_field(
     width: int,
     height: int,
-    n_stars: int = 4000,
+    n_stars: int = 12000,
     seed: int = 42,
     bg_brightness: float = 0.01,
     star_radius_px: int = 1,

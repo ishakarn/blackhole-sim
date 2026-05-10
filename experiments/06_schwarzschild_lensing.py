@@ -137,6 +137,24 @@ def parse_args() -> argparse.Namespace:
         help="Output PNG path (default: outputs/figures/schwarzschild_lensing.png).",
     )
     p.add_argument(
+        "--no-photon-ring",
+        action="store_true",
+        help="Disable the photon ring glow at the shadow edge.",
+    )
+    p.add_argument(
+        "--photon-ring-intensity",
+        type=float,
+        default=3.0,
+        help="Brightness multiplier for the photon ring glow (default 3.0).",
+    )
+    p.add_argument(
+        "--photon-ring-width",
+        type=float,
+        default=0.25,
+        help="Gaussian sigma of the photon ring in world units (default 0.25).",
+    )
+
+    p.add_argument(
         "--show",
         action="store_true",
         help="Display the image after saving (requires matplotlib).",
@@ -222,6 +240,9 @@ def main() -> None:
         lens_strength=args.lens_strength,
         max_deflection=args.max_deflection,
         shadow_softness=args.shadow_softness,
+        photon_ring=not args.no_photon_ring,
+        photon_ring_intensity=args.photon_ring_intensity,
+        photon_ring_width=args.photon_ring_width,
         device=device,
     )
 
