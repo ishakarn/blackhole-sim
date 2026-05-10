@@ -20,6 +20,8 @@ class NullGeodesicTrajectory:
     x: np.ndarray
     y: np.ndarray
     status: str
+    escape_phi: float | None = None
+    deflection_angle: float | None = None
 
 
 def schwarzschild_null_rhs(phi: float, state: np.ndarray) -> np.ndarray:
@@ -72,6 +74,27 @@ def classify_trajectory(u_values: np.ndarray) -> str:
     return "escaped"
 
 
+def estimate_escape_phi(phi_values: np.ndarray, u_values: np.ndarray) -> float | None:
+    """Estimate the azimuth where the ray returns to infinity, u(phi)=0."""
+    for index in range(1, len(u_values)):
+        u_prev = u_values[index - 1]
+        u_curr = u_values[index]
+        if u_prev > 0.0 and u_curr <= 0.0:
+            phi_prev = phi_values[index - 1]
+            phi_curr = phi_values[index]
+            weight = u_prev / max(u_prev - u_curr, 1e-12)
+            return phi_prev + weight * (phi_curr - phi_prev)
+    return None
+
+
+def measure_deflection_angle(phi_values: np.ndarray, u_values: np.ndarray) -> float | None:
+    """Return the total deflection angle alpha = phi_escape - pi for escaping rays."""
+    escape_phi = estimate_escape_phi(phi_values, u_values)
+    if escape_phi is None:
+        return None
+    return escape_phi - np.pi
+
+
 def integrate_null_geodesic(
     impact_parameter: float,
     phi_max: float = 12.0,
@@ -95,24 +118,23 @@ def integrate_null_geodesic(
         state = rk4_step(schwarzschild_null_rhs, phi, state, step)
         u = state[0]
 
+        states.append(state.copy())
+        used_phi.append(phi + step)
+
         if u <= 0.0 and phi > 0.0:
             status = "escaped"
             break
 
         if u > 0.0 and (1.0 / u) <= horizon_radius:
             status = "captured"
-            states.append(state.copy())
-            used_phi.append(phi + step)
             break
-
-        states.append(state.copy())
-        used_phi.append(phi + step)
     else:
         status = "incomplete"
 
     used_phi_array = np.asarray(used_phi)
     state_array = np.asarray(states)
-    u_values = np.clip(state_array[:, 0], 0.0, None)
+    raw_u_values = state_array[:, 0]
+    u_values = np.clip(raw_u_values, 0.0, None)
 
     r_values = np.full_like(u_values, np.inf)
     positive = u_values > 0.0
@@ -123,6 +145,8 @@ def integrate_null_geodesic(
         status = classify_trajectory(u_values)
 
     x_values, y_values = polar_to_cartesian(used_phi_array, r_values)
+    escape_phi = estimate_escape_phi(used_phi_array, raw_u_values)
+    deflection_angle = None if status != "escaped" else measure_deflection_angle(used_phi_array, raw_u_values)
     return NullGeodesicTrajectory(
         impact_parameter=impact_parameter,
         phi=used_phi_array,
@@ -131,6 +155,8 @@ def integrate_null_geodesic(
         x=x_values,
         y=y_values,
         status=status,
+        escape_phi=escape_phi,
+        deflection_angle=deflection_angle,
     )
 
 
@@ -153,8 +179,10 @@ __all__ = [
     "NullGeodesicTrajectory",
     "classify_trajectory",
     "impact_parameter_to_initial_conditions",
+    "estimate_escape_phi",
     "integrate_many_null_geodesics",
     "integrate_null_geodesic",
+    "measure_deflection_angle",
     "polar_to_cartesian",
     "rk4_step",
     "schwarzschild_null_rhs",
